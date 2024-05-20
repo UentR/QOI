@@ -88,7 +88,8 @@ int main() {
     unsigned char r, g, b, a;
     char dr, dg, db;
     char diffGreen, drg, dbg;
-    int idx, run;
+    int idx;
+    unsigned char run;
     int i=0;
     while (Continue<8) { 
         file.read((char*)&dataChunk, 1);
@@ -138,8 +139,11 @@ int main() {
                 data[i] = DeltaPixel+LastPixel;
             } else if (flag == 0b11) {
                 run = (dataChunk & 0b00111111) + 1;
-                i += run-1;
-                fill_n(data+i, run, LastPixel);
+                for (int j=0; j<run; j++) {
+                    data[i+j] = LastPixel;
+                    i++;
+                }
+                i--;
             }
         }
 
