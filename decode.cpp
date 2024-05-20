@@ -51,7 +51,7 @@ int Idx(PIXEL p) {
 }
 
 int main() {
-    ifstream file("ImageTest/kodim10.qoi", ios::binary | ios::in);
+    ifstream file("ImageTest/dice.qoi", ios::binary | ios::in);
     
     if (!file.is_open()) {
         std::cout << "Error: File not found" << endl;
@@ -88,8 +88,7 @@ int main() {
     unsigned char r, g, b, a;
     char dr, dg, db;
     char diffGreen, drg, dbg;
-    int idx;
-    unsigned char run;
+    unsigned char idx, run;
     int i=0;
     while (Continue<8) { 
         file.read((char*)&dataChunk, 1);
@@ -106,20 +105,20 @@ int main() {
             Continue = 0;
         }
 
-        if ((int)dataChunk == 0b11111111) {
+        if ((int)dataChunk == 0b11111111) { // Done
             file.read((char*)&r, 1);
             file.read((char*)&g, 1);
             file.read((char*)&b, 1);
             file.read((char*)&a, 1);
             data[i] = PIXEL(r, g, b, a);
-        } else if ((int)dataChunk == 0b11111110) {
+        } else if ((int)dataChunk == 0b11111110) { // Done
             file.read((char*)&r, 1);
             file.read((char*)&g, 1);
             file.read((char*)&b, 1);
             data[i] = PIXEL(r, g, b, LastPixel.a);
         } else {
             flag = dataChunk >> 6;
-            if (flag == 0b00) {
+            if (flag == 0b00) { // Done
                 idx = dataChunk & 0b00111111;
                 data[i] = seen[idx];
             } else if (flag == 0b01) {
@@ -137,13 +136,10 @@ int main() {
                 db = dbg + diffGreen;
                 DeltaPixel = PIXEL(dr, diffGreen, db, 0);
                 data[i] = DeltaPixel+LastPixel;
-            } else if (flag == 0b11) {
+            } else if (flag == 0b11) { // Done ?
                 run = (dataChunk & 0b00111111) + 1;
-                for (int j=0; j<run; j++) {
-                    data[i+j] = LastPixel;
-                    i++;
-                }
-                i--;
+                fill_n(data+i, run, LastPixel);
+                i += run-1;
             }
         }
 
@@ -154,7 +150,7 @@ int main() {
     }
     file.close();
 
-    ofstream out("ImageTest/kodim10.ppm", ios::binary | ios::out);
+    ofstream out("ImageTest/dice.ppm", ios::binary | ios::out);
     out << "P6" << endl;
     out << width << " " << height << endl;
     out << "255" << endl;
