@@ -9,8 +9,11 @@ PROGS = decode
 
 all: $(PROGS)
 
-clean:
-	rm -f $(PROGS) $(OBJDIR)/*.o
+cleanImg:
+	rm -rf ImageTest/*.ppm
+
+clean: cleanImg
+	rm -rf $(PROGS) $(OBJDIR)/*.o
 
 encode: object/encode.o
 	$(CXX) $(CXXFLAGS) $^ -o $@

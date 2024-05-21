@@ -2,6 +2,8 @@
 #include <iostream>
 #include <bitset>
 #include <algorithm>
+#include <string>
+#include <chrono>
 
 using namespace std;
 
@@ -38,8 +40,8 @@ PIXEL operator+(const PIXEL& p1, const PIXEL& p2) {
     return PIXEL(r, g, b, a);
 }
 
-int endian_swap(int x) {
-    return (x>>24) | ((x<<8) & 0x00FF0000) | ((x>>8) & 0x0000FF00) | (x<<24);
+unsigned int endian_swap(unsigned int x) {
+    return (x>>24) | ((x>>8) & 0x0000FF00) | ((x<<8) & 0x00FF0000) | (x<<24);
 }
 
 int Idx(int r, int g, int b, int a=0) {
@@ -51,7 +53,8 @@ int Idx(PIXEL p) {
 }
 
 int main() {
-    ifstream file("ImageTest/dice.qoi", ios::binary | ios::in);
+    string fileName = "qoi_logo";
+    ifstream file("ImageTest/" + fileName + ".qoi", ios::binary | ios::in);
     
     if (!file.is_open()) {
         std::cout << "Error: File not found" << endl;
@@ -69,11 +72,11 @@ int main() {
     std::cout << width << endl;
     std::cout << height << endl;
 
-    unsigned int channels, colorspace;
-    file.read((char*)&channels, 1);
-    file.read((char*)&colorspace, 1);
-    std::cout << channels << endl;
-    std::cout << colorspace << endl;
+    char channels, colorspace;
+    file.read(&channels, 1);
+    file.read(&colorspace, 1);
+    std::cout << (int) channels << endl;
+    std::cout << (int) colorspace << endl;
 
     int size = width * height;
     PIXEL *data = new PIXEL[size];
@@ -105,29 +108,29 @@ int main() {
             Continue = 0;
         }
 
-        if ((int)dataChunk == 0b11111111) { // Done
+        if ((int)dataChunk == 0b11111111) { // Works
             file.read((char*)&r, 1);
             file.read((char*)&g, 1);
             file.read((char*)&b, 1);
             file.read((char*)&a, 1);
             data[i] = PIXEL(r, g, b, a);
-        } else if ((int)dataChunk == 0b11111110) { // Done
+        } else if ((int)dataChunk == 0b11111110) { // Works
             file.read((char*)&r, 1);
             file.read((char*)&g, 1);
             file.read((char*)&b, 1);
             data[i] = PIXEL(r, g, b, LastPixel.a);
         } else {
             flag = dataChunk >> 6;
-            if (flag == 0b00) { // Done
+            if (flag == 0b00) { // Works
                 idx = dataChunk & 0b00111111;
                 data[i] = seen[idx];
-            } else if (flag == 0b01) {
-                dr = ((dataChunk && 0b00110000) >> 4) - 2;
-                dg = ((dataChunk && 0b00001100) >> 2) - 2;
-                db = (dataChunk &&  0b00000011) - 2;
-                DeltaPixel = PIXEL(dr, dg, db, 0);
-                data[i] = DeltaPixel+LastPixel;
-            } else if (flag == 0b10) {
+            } else if (flag == 0b01) { // Works
+                dr = ((dataChunk & 0b00110000) >> 4) - 2;
+                dg = ((dataChunk & 0b00001100) >> 2) - 2;
+                db = (dataChunk &  0b00000011) - 2;
+                PIXEL Delta(dr, dg, db, 0);
+                data[i] = Delta+LastPixel;
+            } else if (flag == 0b10) { // Works
                 diffGreen = (dataChunk & 0b00111111) - 32;
                 file.read((char*)&dataChunk, 1);
                 drg = (dataChunk >> 4) - 8;
@@ -136,9 +139,9 @@ int main() {
                 db = dbg + diffGreen;
                 DeltaPixel = PIXEL(dr, diffGreen, db, 0);
                 data[i] = DeltaPixel+LastPixel;
-            } else if (flag == 0b11) { // Done ?
+            } else if (flag == 0b11) { // Works
                 run = (dataChunk & 0b00111111) + 1;
-                fill_n(data+i, run, LastPixel);
+                std::fill_n(data+i, run, LastPixel);
                 i += run-1;
             }
         }
@@ -150,7 +153,7 @@ int main() {
     }
     file.close();
 
-    ofstream out("ImageTest/dice.ppm", ios::binary | ios::out);
+    ofstream out("ImageTest/"+fileName+".ppm", ios::binary | ios::out);
     out << "P6" << endl;
     out << width << " " << height << endl;
     out << "255" << endl;
@@ -158,6 +161,7 @@ int main() {
     for (int i=0; i<size; i++) {
         out << data[i].r << data[i].g << data[i].b;
     }
+    out.close();
 
     return 1;
 }
