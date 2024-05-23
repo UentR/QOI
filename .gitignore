@@ -1,3 +1,6 @@
 /ImageTest/*.ppm
 /object/*
 /decode
+/encode
+/.vscode
+/.vs

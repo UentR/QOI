@@ -1,7 +1,7 @@
 .SUFFIXES: .o .cpp
 
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -pedantic -O3
+CXXFLAGS = -std=c++17 -lstdc++ -Wall -pedantic -O3
 
 OBJDIR = object
 
@@ -19,7 +19,7 @@ encode: object/encode.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 decode: object/decode.o
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $(@)
 
 $(OBJDIR)/%.o : %.cpp
 	$(CXX) -c $(CXXFLAGS) $< -o $@

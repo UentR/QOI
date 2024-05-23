@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <string>
 #include <chrono>
+#include <thread>
+#include <SFML/Graphics.hpp>
 
 using namespace std;
 
@@ -52,116 +54,134 @@ int Idx(PIXEL p) {
     return Idx(p.r, p.g, p.b, p.a);
 }
 
-int main() {
-    string fileName = "qoi_logo";
-    ifstream file("ImageTest/" + fileName + ".qoi", ios::binary | ios::in);
-    
-    if (!file.is_open()) {
-        std::cout << "Error: File not found" << endl;
-        return 0;
+
+
+
+int main(int argc, char** argv) {    
+    if (argc < 2) {
+        std::cout << "Usage: ./decode files" << endl;
+        return 1;
     }
 
-    char c;
-    file.read(&c, 4); // QOI
+    for (int k=1; k<argc; k++) {
+        std::cout << argv[k] << endl;
+    
 
-    unsigned int width, height;
-    file.read((char*)&width, 4);
-    width = endian_swap(width);
-    file.read((char*)&height, 4);
-    height = endian_swap(height);
-    std::cout << width << endl;
-    std::cout << height << endl;
+        string fileName = argv[k];
 
-    char channels, colorspace;
-    file.read(&channels, 1);
-    file.read(&colorspace, 1);
-    std::cout << (int) channels << endl;
-    std::cout << (int) colorspace << endl;
+        // Check if file ends with .qoi
+        if (fileName.substr(fileName.find_last_of(".") + 1) != "qoi") {
+            std::cout << "Error: File : " + fileName + " not a .qoi file" << endl;
+            continue;
+        }
+        // truncate the .qoi extension
+        fileName = fileName.substr(0, fileName.find_last_of("."));
 
-    int size = width * height;
-    PIXEL *data = new PIXEL[size];
+        ifstream file(fileName+".qoi", ios::binary | ios::in);
+        if (!file.is_open()) {
+            std::cout << "Error: File not found" << endl;
+            return 2;
+        }
 
-    PIXEL *seen = new PIXEL[64]();
+        char c;
+        file.read(&c, 4); // QOI
 
-    unsigned char dataChunk;
-    int Continue = 0;
-    PIXEL LastPixel{0, 0, 0, 255};
-    PIXEL DeltaPixel{0, 0, 0, 0};
-    int flag;
-    unsigned char r, g, b, a;
-    char dr, dg, db;
-    char diffGreen, drg, dbg;
-    unsigned char idx, run;
-    int i=0;
-    while (Continue<8) { 
-        file.read((char*)&dataChunk, 1);
-        
-        if (dataChunk == 0) {
-            Continue++;
-        } else if (dataChunk == 1) {
-            if (Continue > 0) {
+        unsigned int width, height;
+        file.read((char*)&width, 4);
+        width = endian_swap(width);
+        file.read((char*)&height, 4);
+        height = endian_swap(height);
+
+        char channels, colorspace;
+        file.read(&channels, 1);
+        file.read(&colorspace, 1);
+
+        int size = width * height;
+        PIXEL *data = new PIXEL[size];
+
+        PIXEL *seen = new PIXEL[64]();
+
+        unsigned char dataChunk;
+        int Continue = 0;
+        PIXEL LastPixel{0, 0, 0, 255};
+        PIXEL DeltaPixel{0, 0, 0, 0};
+        int flag;
+        unsigned char r, g, b, a;
+        char dr, dg, db;
+        char diffGreen, drg, dbg;
+        unsigned char idx, run;
+        int i=0;
+        while (Continue<8) { 
+            file.read((char*)&dataChunk, 1);
+            
+            if (dataChunk == 0) {
                 Continue++;
+            } else if (dataChunk == 1) {
+                if (Continue > 0) {
+                    Continue++;
+                } else {
+                    Continue = 0;
+                }
             } else {
                 Continue = 0;
             }
-        } else {
-            Continue = 0;
-        }
 
-        if ((int)dataChunk == 0b11111111) { // Works
-            file.read((char*)&r, 1);
-            file.read((char*)&g, 1);
-            file.read((char*)&b, 1);
-            file.read((char*)&a, 1);
-            data[i] = PIXEL(r, g, b, a);
-        } else if ((int)dataChunk == 0b11111110) { // Works
-            file.read((char*)&r, 1);
-            file.read((char*)&g, 1);
-            file.read((char*)&b, 1);
-            data[i] = PIXEL(r, g, b, LastPixel.a);
-        } else {
-            flag = dataChunk >> 6;
-            if (flag == 0b00) { // Works
-                idx = dataChunk & 0b00111111;
-                data[i] = seen[idx];
-            } else if (flag == 0b01) { // Works
-                dr = ((dataChunk & 0b00110000) >> 4) - 2;
-                dg = ((dataChunk & 0b00001100) >> 2) - 2;
-                db = (dataChunk &  0b00000011) - 2;
-                PIXEL Delta(dr, dg, db, 0);
-                data[i] = Delta+LastPixel;
-            } else if (flag == 0b10) { // Works
-                diffGreen = (dataChunk & 0b00111111) - 32;
-                file.read((char*)&dataChunk, 1);
-                drg = (dataChunk >> 4) - 8;
-                dbg = (dataChunk & 0b00001111) - 8;
-                dr = drg + diffGreen;
-                db = dbg + diffGreen;
-                DeltaPixel = PIXEL(dr, diffGreen, db, 0);
-                data[i] = DeltaPixel+LastPixel;
-            } else if (flag == 0b11) { // Works
-                run = (dataChunk & 0b00111111) + 1;
-                std::fill_n(data+i, run, LastPixel);
-                i += run-1;
+            if ((int)dataChunk == 0b11111111) { // Works
+                file.read((char*)&r, 1);
+                file.read((char*)&g, 1);
+                file.read((char*)&b, 1);
+                file.read((char*)&a, 1);
+                data[i] = PIXEL(r, g, b, a);
+            } else if ((int)dataChunk == 0b11111110) { // Works
+                file.read((char*)&r, 1);
+                file.read((char*)&g, 1);
+                file.read((char*)&b, 1);
+                data[i] = PIXEL(r, g, b, LastPixel.a);
+            } else {
+                flag = dataChunk >> 6;
+                if (flag == 0b00) { // Works
+                    idx = dataChunk & 0b00111111;
+                    data[i] = seen[idx];
+                } else if (flag == 0b01) { // Works
+                    dr = ((dataChunk & 0b00110000) >> 4) - 2;
+                    dg = ((dataChunk & 0b00001100) >> 2) - 2;
+                    db = (dataChunk &  0b00000011) - 2;
+                    PIXEL Delta(dr, dg, db, 0);
+                    data[i] = Delta+LastPixel;
+                } else if (flag == 0b10) { // Works
+                    diffGreen = (dataChunk & 0b00111111) - 32;
+                    file.read((char*)&dataChunk, 1);
+                    drg = (dataChunk >> 4) - 8;
+                    dbg = (dataChunk & 0b00001111) - 8;
+                    dr = drg + diffGreen;
+                    db = dbg + diffGreen;
+                    DeltaPixel = PIXEL(dr, diffGreen, db, 0);
+                    data[i] = DeltaPixel+LastPixel;
+                } else if (flag == 0b11) { // Works
+                    run = (dataChunk & 0b00111111) + 1;
+                    std::fill_n(data+i, run, LastPixel);
+                    i += run-1;
+                }
             }
+
+            LastPixel = data[i];
+            idx = Idx(LastPixel);
+            seen[idx] = LastPixel;
+            i++;
         }
+        file.close();
 
-        LastPixel = data[i];
-        idx = Idx(LastPixel);
-        seen[idx] = LastPixel;
-        i++;
+
+        
+        ofstream out(fileName+".ppm", ios::binary | ios::out);
+        out << "P6" << endl;
+        out << width << " " << height << endl;
+        out << "255" << endl;
+
+        for (int i=0; i<size; i++) {
+            out << data[i].r << data[i].g << data[i].b;
+        }
+        out.close();
     }
-    file.close();
-
-    ofstream out("ImageTest/"+fileName+".ppm", ios::binary | ios::out);
-    out << "P6" << endl;
-    out << width << " " << height << endl;
-    out << "255" << endl;
-
-    for (int i=0; i<size; i++) {
-        out << data[i].r << data[i].g << data[i].b;
-    }
-    out.close();
-
-    return 1;
+    return 0;
 }
